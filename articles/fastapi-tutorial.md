@@ -94,6 +94,17 @@ https://containers.dev/
 
 VSCodeのターミナル上で、PythonとPostgreSQLの起動・接続できることを確認
 
+:::details ローカルのシェルを使いたい場合
+devcontainer.jsonでポートフォワードの設定の箇所のコメントアウトを外してあげればよい
+
+```diff json: devcontainer.json
+	// Use 'forwardPorts' to make a list of ports inside the container available locally.
+	// This can be used to network with other containers or the host.
++ 	 "forwardPorts": [5000, 5432],  # <= ここ
+```
+
+:::
+
 ```bash
 # Pythonの起動確認
 python
@@ -111,22 +122,85 @@ Type "help" for help.
 postgres=# \q
 ```
 
-以上で、DevContainer上でPythonとPostgreSQLの実行環境が整った。
+以上で、DevContainer上でPythonとPostgreSQLの実行環境の構築が完了。
 
-## データベースモデル定義と操作(SQLAlchemy)
+## データベース設定・モデル定義(SQLAlchemy)
 
-SQLAlchemyとは？
-データベース設定
-データベースモデルの定義
+SQLAlchemyによるテーブルのモデル定義と設定を行う。
+
+### SQLAlchemyとは？
+
+Pythonで人気のORM(Object Relational Mapper)。
+ざっくりいうと、テーブルとオブジェクト(クラス)を対応させて、クラスのメソッド経由でデータのやりとりをするためのもの。
+
+### データベース設定
+
+1. モデル定義と設定を書くファイルを作成
+
+    ```bash
+    mkdir src
+    touch src/__init__.py src/database.py src/schemas.py
+    ```
+
+2. DB設定
+
+    ```python: database.py
+    from sqlalchemy import create_engine
+    from sqlalchemy.ext.declarative import declarative_base
+    from sqlalchemy.orm import sessionmaker
+
+    # DBの接続情報を指定
+    # dialect+driver://username:password@host:port/database
+    SQLALCHEMY_DATABASE_URL = "postgresql://postgres:postgres@localhost/postgres"
+
+    # DBとの接続を確立
+    engine = create_engine(SQLALCHEMY_DATABASE_URL)
+
+    # DBセッションを生成するファクトリを作成
+    SessionLocal = sessionmaker(
+        autocommit=False,  # セッションの自動コミットを無効化
+        autoflush=False,  # 自動フラッシュを無効化
+        bind=engine  # セッションが使用するエンジンを指定
+    )
+
+    # ベースとなるORMモデルのクラスを定義
+    Base = declarative_base()
+    ```
+
+    `SessionLocal`について
+    このクラス自体はまだDBのセッションではないが、`SessionLocal`のインスタンスを作成すると実際のDBのセッションとなる。
+    SQLAlchemy からインポートする `Session`と区別するために、`SessionLocal`と命名。
+
+### データベースモデルの定義
+
+```python: schemas.py
+from sqlalchemy import Column, Integer, String
+
+from .database import Base
+
+# Baseを継承することでORMモデルの作成できる
+class User(Base):
+    # テーブル名
+    __tablename__ = "users"
+
+    # カラム定義
+    id = Column(Integer, primary_key=True)
+    email = Column(String, unique=True, index=True)
+    name = Column(String, unique=True, index=True)
+```
+
+
 
 ## マイグレーション(Alembic)
 
 Alembicとは？
 マイグレーション
 
-## FastAPI
+## API実装
 
 FastAPIとは？
+Pydanticによる型定義
+CRUD実装
 FastAPIとSQLAlchemyの統合
 
 ## ローカル環境でのAPI動作確認
